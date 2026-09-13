@@ -1,0 +1,15 @@
+[
+{
+  "modid": "playwithfriend",
+  "name": "Play With Friend",
+  "description": "AI player-friend (FakePlayer + Hermes brain). Singleplayer companion with verified actions.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "authorList": ["you"],
+  "credits": "MindCraft-inspired, Forge-native rebuild",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
