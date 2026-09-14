@@ -20,7 +20,12 @@ public class GuiTitleHandler {
     public void onGui(GuiScreenEvent.InitGuiEvent.Post e) {
         GuiScreen g = e.getGui();
         if (g instanceof GuiMainMenu) {
-            e.getButtonList().add(new GuiButton(9871, 10, 10, 120, 20, "Hermes: " + (mod.hermes.hasKey() ? mod.hermes.model : "login")));
+            String label = "Hermes: connect";
+            if (mod.hermes.hasOAuth()) {
+                label = "Hermes: " + (mod.hermes.model.isEmpty() ? "connected" : mod.hermes.model);
+                if (label.length() > 28) label = label.substring(0, 28);
+            }
+            e.getButtonList().add(new GuiButton(9871, 10, 10, 150, 20, label));
         }
     }
 
