@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -47,3 +47,25 @@ jobs:
         with:
           name: playwithfriend-jar
           path: build/libs/*.jar
+
+      - name: Stage stable jar name
+        if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: |
+          ls build/libs/
+          JAR=$(ls build/libs/*.jar | grep -v -i -e sources -e javadoc | head -n 1)
+          echo "Releasing $JAR"
+          cp "$JAR" playwithfriend-1.12.2.jar
+
+      - name: Publish latest release
+        if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Latest successful build"
+          body: |
+            Auto-built from `${{ github.sha }}` ([run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})).
+
+            Install: Minecraft 1.12.2 + Forge 14.23.5.2847, drop `playwithfriend-1.12.2.jar` into `.minecraft/mods/`.
+          files: playwithfriend-1.12.2.jar
+          draft: false
+          prerelease: false

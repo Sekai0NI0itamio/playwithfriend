@@ -5,9 +5,9 @@
   "description": "AI player-friend (FakePlayer + Hermes brain). Singleplayer companion with verified actions.",
   "version": "${version}",
   "mcversion": "${mcversion}",
-  "url": "",
-  "authorList": ["you"],
-  "credits": "MindCraft-inspired, Forge-native rebuild",
+  "url": "https://github.com/Sekai0NI0itamio/playwithfriend",
+  "authorList": ["Sekai0NI0itamio"],
+  "credits": "AI-player concept inspired by MindCraft (kolbytn, MIT). Built on MinecraftForge (LGPL-2.1), MCP stable_39 mappings, Gson (Apache-2.0). Hermes brain user-supplied. Minecraft (c) Mojang.",
   "logoFile": "",
   "screenshots": [],
   "dependencies": []
