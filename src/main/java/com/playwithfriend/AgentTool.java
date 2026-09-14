@@ -66,6 +66,7 @@ public abstract class AgentTool {
         t.add(new ComeTool());
         t.add(new StopTool());
         t.add(new DoneTool());
+        t.add(new RememberTool());
         return t;
     }
 
@@ -470,10 +471,26 @@ public abstract class AgentTool {
 
         @Override
         public String run(FriendState st, MinecraftServer server, String args) {
+            String note = args == null ? "" : args.trim();
             st.goal = "";
             st.next = "Follow owner";
-            st.doing = "Done" + (args.trim().isEmpty() ? "" : ": " + args.trim());
+            st.doing = "Done" + (note.isEmpty() ? "" : ": " + note);
+            if (st.longMemory != null && !note.isEmpty()) st.longMemory.note(note);
             return "OK job closed";
         }
     }
-}
+
+    static class RememberTool extends AgentTool {
+        RememberTool() {
+            super("remember", "act", "remember <fact about the player>: save it permanently (base location, preferences, names). Use for anything worth knowing next session.");
+        }
+
+        @Override
+        public String run(FriendState st, MinecraftServer server, String args) {
+            String fact = args == null ? "" : args.trim();
+            if (fact.isEmpty()) return "ERR INVALID_ARGUMENT usage: remember <fact>";
+            if (st.longMemory == null) return "ERR no memory store";
+            st.longMemory.remember(fact);
+            return "OK remembered: " + fact;
+        }
+    }

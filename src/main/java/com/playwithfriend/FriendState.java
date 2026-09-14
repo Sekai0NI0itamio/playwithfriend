@@ -12,6 +12,7 @@ public class FriendState {
     public final ActionExecutor executor;
     public final AgentSession agent;
     public final FriendMemory memory = new FriendMemory();
+    public transient FriendLongMemory longMemory;
     public String mode = "Follow";
     public String goal = "";
     public String doing = "";

@@ -68,6 +68,11 @@ public class FriendManager {
         st.visible = vis;
         st.proxy = proxy;
         st.ownerId = owner != null ? owner.getUniqueID() : null;
+        String ownerName = owner != null ? owner.getName() : "Player";
+        st.longMemory = FriendLongMemory.load(
+            net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance().getDataDirectory(),
+            st.name, ownerName);
+        st.longMemory.note("Met " + ownerName + ", spawned near them.");
         st.goal = "Follow";
         st.doing = "Spawned";
         st.next = "Follow owner";
@@ -118,6 +123,28 @@ public class FriendManager {
         }
     }
 
+    /** Returns a self-start prompt when the world deserves a comment, else null. */
+    private String idlePoke(FriendState st, EntityPlayerMP owner) {
+        try {
+            if (!st.visible.world.isDaytime()) {
+                return "(idle check: it just turned night and no job is running — say something proactive and do something useful)";
+            }
+            if (owner.getHealth() < 10.0F) {
+                return "(idle check: the player is hurt — notice and help)";
+            }
+            for (Object e : st.visible.world.loadedEntityList) {
+                if (e instanceof net.minecraft.entity.monster.EntityMob) {
+                    net.minecraft.entity.monster.EntityMob mob = (net.minecraft.entity.monster.EntityMob) e;
+                    if (!mob.isDead && mob.getDistance(st.visible) < 10) {
+                        return "(idle check: a hostile mob is close — warn and react)";
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
     public void tick(MinecraftServer server) {
         for (FriendState st : friends.values()) {
             if (st.visible == null || st.visible.isDead) continue;
@@ -149,6 +176,14 @@ public class FriendManager {
             }
             if (st.proxy != null) {
                 st.proxy.setPosition(st.visible.posX, st.visible.posY, st.visible.posZ);
+            }
+            // Proactive idle: every ~45s with no job, the friend notices the
+            // world (nightfall, mobs, hurt owner) and starts a session itself.
+            if (!st.agent.hasWork() && server.getTickCounter() % 900 == 0) {
+                String poke = idlePoke(st, owner);
+                if (poke != null) {
+                    st.brain.answerChatAsync(st, owner.getName(), poke);
+                }
             }
             if (st.ticket != null && server.getTickCounter() % 100 == 0) {
                 ChunkPos cur = new ChunkPos(st.visible.getPosition());

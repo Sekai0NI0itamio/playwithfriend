@@ -82,7 +82,7 @@ public class AgentSession {
             String snap = snapshot(st, server);
             String reply;
             try {
-                reply = brain.think(job, snap, drainHistory(), saidFirst);
+                reply = brain.think(st, job, snap, drainHistory(), saidFirst);
             } catch (Exception e) {
                 fails++;
                 lastResult = "ERR LLM: " + e.getMessage();
@@ -177,12 +177,44 @@ public class AgentSession {
             sb.append(" hp=").append((int) st.visible.getHealth());
             sb.append(" mode=").append(st.mode);
             sb.append(" doing=").append(st.doing);
+            sb.append(" time=").append(st.visible.world.getWorldTime() % 24000);
+            sb.append(st.visible.world.isDaytime() ? "(day)" : "(night)");
+            sb.append(" weather=").append(st.visible.world.isRaining() ? "rain" : "clear");
             net.minecraft.entity.player.EntityPlayerMP o = st.ownerId == null ? null
                 : server.getPlayerList().getPlayerByUUID(st.ownerId);
             if (o != null) {
                 sb.append(" owner=").append((int) o.posX).append(',').append((int) o.posY).append(',').append((int) o.posZ);
                 sb.append(" ownerDist=").append((int) st.visible.getDistance(o));
+                sb.append(" ownerHp=").append((int) o.getHealth());
+                sb.append(" ownerHolding=").append(o.getHeldItemMainhand().getDisplayName());
             }
+            // Nearby threats/friends (cheap 12-block scan).
+            int mobs = 0;
+            String mobNames = "";
+            for (Object e : st.visible.world.loadedEntityList) {
+                if (!(e instanceof net.minecraft.entity.EntityLiving)) continue;
+                net.minecraft.entity.EntityLiving el = (net.minecraft.entity.EntityLiving) e;
+                if (el == st.visible || el.isDead) continue;
+                if (el.getDistance(st.visible) > 12) continue;
+                mobs++;
+                if (mobNames.length() < 80) {
+                    if (!mobNames.isEmpty()) mobNames += ",";
+                    mobNames += el.getName();
+                }
+            }
+            sb.append(" nearbyMobs=").append(mobs).append("[").append(mobNames).append("]");
+            StringBuilder inv = new StringBuilder();
+            if (st.proxy != null) {
+                for (int i = 0; i < st.proxy.inventory.getSizeInventory(); i++) {
+                    net.minecraft.item.ItemStack s = st.proxy.inventory.getStackInSlot(i);
+                    if (!s.isEmpty()) {
+                        if (inv.length() > 0) inv.append(",");
+                        inv.append(s.getCount()).append("x").append(s.getDisplayName());
+                        if (inv.length() > 160) break;
+                    }
+                }
+            }
+            sb.append(" inv=[").append(inv.length() == 0 ? "empty" : inv.toString()).append("]");
             sb.append(" lastResult=").append(lastResult.length() > 300 ? lastResult.substring(0, 300) : lastResult);
         } catch (Exception e) {
             sb.append("snapshot-err ").append(e.getMessage());

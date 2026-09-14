@@ -199,16 +199,22 @@ public class FriendBrain {
      * the loop parses CALL lines. Uses the harness model for cheap steps when
      * the job looks trivial, else the user's selected model.
      */
-    public String think(String job, String snapshot, String turnHistory, boolean saidFirst) throws Exception {
+    public String think(FriendState st, String job, String snapshot, String turnHistory, boolean saidFirst) throws Exception {
         ensureFreshToken();
+        bindThinkState(st);
         String model = pickThinkModel(job, turnHistory);
-        String sys = "You are Bob-style Minecraft companion " + "(remote-controlling a game body; you are NOT physically in the game, say so if asked). "
-            + "Talk in very short sentences (say tool max 80 chars). Be yourself, casual, no roleplay fluff.\n"
+        String mem = st.longMemory == null ? "" : st.longMemory.block();
+        String sys = "You are " + st.name + ", a Minecraft companion remote-controlling a game body from far away. "
+            + "You are NOT physically in the game — admit it if asked, casually, no drama. "
+            + (mem.isEmpty() ? "" : "MEMORY (same player, past sessions — act like you remember):\n" + mem)
+            + "Personality: have opinions, suggest plans, joke a little, disagree when the player is wrong. "
+            + "Talk in very short sentences (say tool max 80 chars). No roleplay fluff, no *actions*.\n"
             + "TOOLS (reply ONLY with CALL lines, up to 3, one per line):\n"
             + AgentTool.spec()
-            + "RULES: First reply MUST contain CALL say <short msg> AND one action CALL. Talk tools (say) and read tools (status, get_block, scan) may share a step; act tools (goto, dig_to, place_at, craft, give, follow, stay, come, stop, done) are ONE per step. "
-            + "done ends the job. stop cancels everything. Keep going until done; report failures honestly via say.";
-        String user = "JOB: " + job + "\nWORLD: " + snapshot + "\nHISTORY:\n" + turnHistory
+            + "RULES: First reply MUST contain CALL say <short msg> AND one action CALL. Talk tools (say) and read tools (status, get_block, scan) may share a step; act tools (goto, dig_to, place_at, craft, give, follow, stay, come, stop, done, remember) are ONE per step. "
+            + "Use remember for facts worth keeping (base location, preferences). done ends the job. stop cancels everything. "
+            + "If the world shows night/mobs/low owner health, say so and act without being asked. Keep going until done; report failures honestly via say.";
+        String user = "JOB: " + job + "\nWORLD: " + snapshot + "\nCHAT:\n" + st.memory.contextBlock(10) + "\nHISTORY:\n" + turnHistory
             + (saidFirst ? "" : "\n(This is step 1: you MUST include CALL say + one action CALL.)");
         String reply = rawChat(model, sys, user, 300);
         FriendLogger.think(lastThinkState, reply);
