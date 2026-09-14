@@ -192,7 +192,6 @@ public class GuiHermesConfig extends GuiScreen {
             phase = "done";
             info = catalog.status;
             if (!cfg.model.isEmpty()) {
-                List<ModelCatalog.Entry> vis = visible();
                 for (int i = 0; i < vis.size(); i++) {
                     if (vis.get(i).id.equals(cfg.model)) selected = i;
                 }
@@ -251,17 +250,9 @@ public class GuiHermesConfig extends GuiScreen {
         if (list != null) list.handleMouseInput();
     }
 
-    @Override
-    protected void mouseClicked(int x, int y, int b) throws IOException {
-        super.mouseClicked(x, y, b);
-        if (list != null) list.mouseClicked(x, y, b);
-    }
-
-    @Override
-    protected void mouseReleased(int x, int y, int s) {
-        super.mouseReleased(x, y, s);
-        if (list != null) list.mouseReleased(x, y, s);
-    }
+    // NOTE: GuiSlot has no mouseClicked/mouseReleased in 1.12.2 — all slot
+    // mouse handling (scroll wheel, scrollbar drag, row click) runs through
+    // handleMouseInput(), forwarded above. Do not add direct forwards here.
 
     class ModelList extends GuiSlot {
         ModelList() {
