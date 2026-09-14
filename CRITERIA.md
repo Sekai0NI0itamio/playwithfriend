@@ -6,7 +6,7 @@
 - [ ] Planning != execution: Hermes LLM returns Goal/Plan JSON, deterministic `ActionExecutor` does mine/place/craft/smelt/equip/eat/open-container/attack step-by-step with verify-after-every-action (block changed, item in inventory)
 - [ ] Stuck detection -> recovery -> replan; never stares at wall >5s without chat/status update
 - [ ] Hermes connect from title screen uses Nous Portal OAuth device-code (button -> code + auto-open browser -> approve -> token stored locally, never logged, auto-refresh); no API-key typing
-- [ ] After connect, model list loads (Portal recs + inference /models + OpenRouter prices) with All/Free/Paid filter; each row shows FREE/PAID, price in/out per 1M, context length, input/output modalities; selecting + Save persists
+- [ ] Model list scrolls (wheel + scrollbar + drag), click selects with [x] marker, Save enables and persists, saved model shows > marker + on title button; Connect/Open/Filter/Save/Back/Disconnect all visibly enable/disable with state (never stuck grey); approval URL drawn in-game as fallback
 - [ ] Cost harness: every plan goes planner model -> cheap DeepSeek pass that returns only clean plan lines; harness failure falls back to raw plan, never blocks; free-tier users see only free models selectable
 - [ ] Explainability: `/friend status` + overhead/chat line always shows Goal / Doing / Next; `What are you doing?` answers from real state, not hallucinated
 - [ ] Safety (llm-security): tool allowlist, human confirm for destructive/high-impact (lava, TNT, throw valuables), rate-limited Hermes calls, outputs sanitized before commands

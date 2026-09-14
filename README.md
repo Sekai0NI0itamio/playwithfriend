@@ -10,6 +10,13 @@ Install: Minecraft 1.12.2 + Forge 14.23.5.2847 → drop the jar into `.minecraft
 
 > Built automatically by GitHub Actions on every successful `main` push. If the link 404s, no green build has published yet — check the [Actions tab](https://github.com/Sekai0NI0itamio/playwithfriend/actions) or use the [latest release page](https://github.com/Sekai0NI0itamio/playwithfriend/releases/latest).
 
+## Test it in game (5 min)
+1. Install: vanilla launcher, Minecraft 1.12.2 + Forge 14.23.5.2847, drop the jar above into `.minecraft/mods/`, launch.
+2. Title screen -> Hermes button (top-left, shows connect state) -> Connect Hermes account -> approve the shown code in the auto-opened Portal page (URL also drawn in-game + "Open login page" reopens it) -> wait for "Connected! Loading models...".
+3. Model list: mouse-wheel / scrollbar / drag all scroll; click a row -> it shows `[x]`, "Save model" enables; Filter button cycles All -> Free only -> Paid only; double-click also saves. Saved model is prefixed `>` and shown on the title button + status line.
+4. Singleplayer world -> `/friend spawn Alex` -> `/friend status` (Goal/Doing/Next) -> `/friend do get 32 logs` -> friend plans via your model + DeepSeek harness, executes verified steps, reports stuck/replans.
+5. If anything looks off, screenshot the screen + paste `.minecraft/logs/latest.log` lines mentioning `playwithfriend`.
+
 ## Setup (devs, CI builds only)
 CI (`.github/workflows/build.yml`, Java 8 + Gradle 4.9) compiles every push. Per repo policy (`AGENTS.md`) never build locally.
 Runtime: title screen -> Hermes button -> Connect Hermes account (code + browser approve, like `hermes setup --portal`) -> pick a model (All/Free/Paid filter, prices + context + modalities shown) -> Save. Token stays in config/playwithfriend-hermes.json, never logged.

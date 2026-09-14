@@ -174,6 +174,20 @@ public class GuiHermesConfig extends GuiScreen {
     @Override
     public void updateScreen() {
         super.updateScreen();
+        // Recompute every tick so buttons never look dead/stale after
+        // background connect/catalog threads change state.
+        openBrowserBtn.enabled = device != null;
+        disconnectBtn.enabled = cfg.hasOAuth();
+        connectBtn.displayString = polling || "code".equals(phase) || "poll".equals(phase)
+            ? "Waiting for approval..."
+            : (cfg.hasOAuth() ? "Connected - reconnect" : "Connect Hermes account");
+        List<ModelCatalog.Entry> vis = visible();
+        if (selected < 0 || selected >= vis.size()) {
+            selected = -1;
+            saveBtn.enabled = false;
+        } else {
+            saveBtn.enabled = true;
+        }
         if ("loading".equals(phase) && !catalog.status.startsWith("Loading")) {
             phase = "done";
             info = catalog.status;
@@ -203,6 +217,9 @@ public class GuiHermesConfig extends GuiScreen {
         if ("code".equals(phase) || "poll".equals(phase)) {
             if (device != null) {
                 drawCenteredString(fontRenderer, "Code: " + device.userCode, cx, 40, 0xFFFF55);
+                String url = device.verifyUrl;
+                if (url.length() > 76) url = url.substring(0, 76) + "...";
+                drawCenteredString(fontRenderer, "Approve at: " + url, cx, 92, 0x7CC4FF);
             } else {
                 drawCenteredString(fontRenderer, info, cx, 40, 0xAAAAAA);
             }
@@ -226,6 +243,24 @@ public class GuiHermesConfig extends GuiScreen {
     @Override
     protected void keyTyped(char c, int k) throws IOException {
         super.keyTyped(c, k);
+    }
+
+    @Override
+    public void handleMouseInput() throws IOException {
+        super.handleMouseInput();
+        if (list != null) list.handleMouseInput();
+    }
+
+    @Override
+    protected void mouseClicked(int x, int y, int b) throws IOException {
+        super.mouseClicked(x, y, b);
+        if (list != null) list.mouseClicked(x, y, b);
+    }
+
+    @Override
+    protected void mouseReleased(int x, int y, int s) {
+        super.mouseReleased(x, y, s);
+        if (list != null) list.mouseReleased(x, y, s);
     }
 
     class ModelList extends GuiSlot {
@@ -259,8 +294,8 @@ public class GuiHermesConfig extends GuiScreen {
             List<ModelCatalog.Entry> vis = visible();
             if (i < 0 || i >= vis.size()) return;
             ModelCatalog.Entry e = vis.get(i);
-            String name = e.label.isEmpty() ? e.id : e.label;
-            if (cfg.model.equals(e.id)) name = "> " + name;
+            String marker = (i == selected) ? "[x] " : (cfg.model.equals(e.id) ? "> " : "[ ] ");
+            String name = marker + (e.label.isEmpty() ? e.id : e.label);
             if (name.length() > 52) name = name.substring(0, 52);
             GuiHermesConfig.this.drawString(fontRenderer, name, rx + 4, ry + 1, e.free ? 0x7CFC00 : 0xFFD27C);
             String d = e.detail;
