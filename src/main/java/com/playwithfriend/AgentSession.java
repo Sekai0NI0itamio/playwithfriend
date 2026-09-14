@@ -64,9 +64,15 @@ public class AgentSession {
         repeats = 0;
         job = jobText;
         saidFirst = false;
+        lastResult = "";
+        lastTool = "";
+        resultReady = true;
         startedAt = System.currentTimeMillis();
         synchronized (history) {
             history.clear();
+        }
+        synchronized (queue) {
+            queue.clear();
         }
         st.goal = jobText.length() > 100 ? jobText.substring(0, 100) : jobText;
         new Thread(() -> loop(st, server)).start();
@@ -85,8 +91,16 @@ public class AgentSession {
                 reply = brain.think(st, job, snap, drainHistory(), saidFirst);
             } catch (Exception e) {
                 fails++;
-                lastResult = "ERR LLM: " + e.getMessage();
-                sleep(1000);
+                String msg = String.valueOf(e.getMessage());
+                lastResult = "ERR LLM: " + msg;
+                pushHist("game", lastResult);
+                // Back off instead of burning all 3 retries instantly, and
+                // tell the player the REAL cause (no Hermes / bad key / HTTP).
+                if (fails >= MAX_FAILS) {
+                    pause(st, server, "brain unreachable (" + shortMsg(msg) + ")");
+                    return;
+                }
+                sleep(3000);
                 continue;
             }
             List<ToolCall> calls = ToolCall.parse(reply);
@@ -159,14 +173,26 @@ public class AgentSession {
 
     private void pause(FriendState st, MinecraftServer server, String why) {
         running = false;
-        String note = "I got stuck, so I paused (" + why + ", step " + steps + ").";
+        String note;
+        if (why.startsWith("brain unreachable")) {
+            note = "Can't reach my brain (" + why.substring("brain unreachable (".length()).replace(")", "") + "). Connect Hermes on the title screen first.";
+        } else {
+            note = "I got stuck, so I paused (" + why + ", step " + steps + ").";
+        }
         PendingCall p = new PendingCall();
         p.tool = "say";
-        p.args = note;
+        p.args = note.length() > 80 ? note.substring(0, 80) : note;
         synchronized (queue) {
             queue.add(p);
         }
         st.doing = "Paused (" + why + ")";
+        FriendLogger.info(st, "PAUSED: " + why);
+    }
+
+    private static String shortMsg(String m) {
+        if (m == null) return "?";
+        m = m.replaceAll("java\\.[a-zA-Z.]+:? ?", "").trim();
+        return m.length() > 60 ? m.substring(0, 60) : m;
     }
 
     private String snapshot(FriendState st, MinecraftServer server) {
