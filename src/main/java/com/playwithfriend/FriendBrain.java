@@ -95,7 +95,7 @@ public class FriendBrain {
         new Thread(() -> {
             try {
                 ensureFreshToken();
-                String plan = callChat(cfg.model, userGoal, false);
+                String plan = callChat(cfg.model, userGoal, 400);
                 plan = harnessParse(plan, userGoal);
                 pendingPlan = plan;
             } catch (Exception e) {

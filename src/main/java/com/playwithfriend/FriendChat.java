@@ -35,7 +35,7 @@ public class FriendChat {
         if (player == null || player.world.isRemote) return;
         String msg = e.getMessage();
         if (msg == null || msg.trim().isEmpty()) return;
-        MinecraftServer server = player.mcServer;
+        MinecraftServer server = player.getServer();
 
         Match m = address(msg);
         if (m == null) return;
