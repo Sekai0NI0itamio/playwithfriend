@@ -71,7 +71,7 @@ public class FriendManager {
             ticket = ForgeChunkManager.requestTicket(PlayWithFriend.instance, world, ForgeChunkManager.Type.NORMAL);
         }
         if (ticket != null) {
-            net.minecraft.world.ChunkPos pos = new net.minecraft.world.ChunkPos(vis.getPosition());
+            net.minecraft.util.math.ChunkPos pos = new net.minecraft.util.math.ChunkPos(vis.getPosition());
             ForgeChunkManager.forceChunk(ticket, pos);
         }
     }
@@ -115,7 +115,7 @@ public class FriendManager {
                 st.proxy.setPosition(st.visible.posX, st.visible.posY, st.visible.posZ);
             }
             if (ticket != null && server.getTickCounter() % 100 == 0) {
-                net.minecraft.world.ChunkPos pos = new net.minecraft.world.ChunkPos(st.visible.getPosition());
+                net.minecraft.util.math.ChunkPos pos = new net.minecraft.util.math.ChunkPos(st.visible.getPosition());
                 ForgeChunkManager.forceChunk(ticket, pos);
             }
             st.brain.tickAsync(st, server);
