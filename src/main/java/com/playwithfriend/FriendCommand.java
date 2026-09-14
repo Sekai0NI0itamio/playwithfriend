@@ -44,7 +44,8 @@ public class FriendCommand extends CommandBase {
                 sender.sendMessage(new TextComponentString("Spawned " + r.state.statusLine()));
             } else {
                 sender.sendMessage(new TextComponentString(r.state.name + " is already here. " + r.state.statusLine()));
-            } else if ("status".equals(sub)) {
+            }
+        } else if ("status".equals(sub)) {
             for (FriendState st : mod.friends.all()) {
                 sender.sendMessage(new TextComponentString(st.statusLine()));
             }
