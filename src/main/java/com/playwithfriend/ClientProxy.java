@@ -46,15 +46,13 @@ public class ClientProxy extends CommonProxy {
             if (cached != null) return cached;
             Minecraft mc = Minecraft.getMinecraft();
             GameProfile profile = new GameProfile(null, name);
-            MinecraftProfileTexture tex = mc.getSkinManager().loadSkinFromCache(profile);
+            java.util.Map<?, ?> map = mc.getSkinManager().loadSkinFromCache(profile);
+            Object tex = map == null ? null : map.get(MinecraftProfileTexture.Type.SKIN);
             ResourceLocation loc;
-            if (tex != null) {
-                loc = new ResourceLocation("skins/" + tex.getHash());
-                ITextureObject obj = new ThreadDownloadImageData(null, tex.getUrl(), DefaultPlayerSkin.getDefaultSkin(id), new net.minecraft.client.resources.SkinManager.SkinAvailableCallback() {
-                    @Override
-                    public void skinAvailable(MinecraftProfileTexture.Type type, ResourceLocation l, MinecraftProfileTexture t) {
-                    }
-                });
+            if (tex instanceof MinecraftProfileTexture) {
+                MinecraftProfileTexture t = (MinecraftProfileTexture) tex;
+                loc = new ResourceLocation("skins/" + t.getHash());
+                ITextureObject obj = new ThreadDownloadImageData(null, t.getUrl(), DefaultPlayerSkin.getDefaultSkin(id), null);
                 mc.getTextureManager().loadTexture(loc, obj);
             } else {
                 loc = DefaultPlayerSkin.getDefaultSkin(id);
@@ -62,11 +60,7 @@ public class ClientProxy extends CommonProxy {
             SKINS.put(name, loc);
             return loc;
         } catch (Exception e) {
-            try {
-                return DefaultPlayerSkin.getDefaultSkin(id);
-            } catch (Exception e2) {
-                return AbstractClientPlayer.TEXTURE_STEVE;
-            }
+            return DefaultPlayerSkin.getDefaultSkin(id);
         }
     }
 }
