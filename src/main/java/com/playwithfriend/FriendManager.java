@@ -68,10 +68,11 @@ public class FriendManager {
 
     private void ensureTicket(WorldServer world, EntityFriend vis) {
         if (ticket == null) {
-            ticket = ForgeChunkManager.requestTicket(PlayWithFriend.instance, world, ForgeChunkManager.Type.ENTITY);
+            ticket = ForgeChunkManager.requestTicket(PlayWithFriend.instance, world, ForgeChunkManager.Type.NORMAL);
         }
         if (ticket != null) {
-            ForgeChunkManager.bindEntity(world, ticket, vis);
+            net.minecraft.world.ChunkPos pos = new net.minecraft.world.ChunkPos(vis.getPosition());
+            ForgeChunkManager.forceChunk(ticket, pos);
         }
     }
 
@@ -112,6 +113,10 @@ public class FriendManager {
             }
             if (st.proxy != null) {
                 st.proxy.setPosition(st.visible.posX, st.visible.posY, st.visible.posZ);
+            }
+            if (ticket != null && server.getTickCounter() % 100 == 0) {
+                net.minecraft.world.ChunkPos pos = new net.minecraft.world.ChunkPos(st.visible.getPosition());
+                ForgeChunkManager.forceChunk(ticket, pos);
             }
             st.brain.tickAsync(st, server);
             st.executor.tick(st, server);
