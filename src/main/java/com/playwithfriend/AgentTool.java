@@ -494,3 +494,4 @@ public abstract class AgentTool {
             return "OK remembered: " + fact;
         }
     }
+}
