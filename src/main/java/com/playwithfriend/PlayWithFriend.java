@@ -27,6 +27,7 @@ public class PlayWithFriend {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent e) {
         hermes = new HermesConfig(e.getSuggestedConfigurationFile().getParentFile());
+        FriendLogger.init(e.getSuggestedConfigurationFile().getParentFile());
         friends = new FriendManager(this);
         proxy.preInit(e);
         MinecraftForge.EVENT_BUS.register(new FriendEvents(this));

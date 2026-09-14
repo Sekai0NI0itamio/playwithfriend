@@ -20,41 +20,25 @@ public class FriendBrain {
         this.cfg = cfg;
     }
 
-    /** Natural-chat entry: classify (harness) then talk, act, or switch mode. */
+    /** Natural-chat entry: everything becomes an agent job. Pure chatter
+     * ("hi bob") just runs a 1-2 step session (say, done); anything with a
+     * job attached runs the full observe->think->act loop. */
     public void answerChatAsync(final FriendState st, final String playerName, final String text) {
         if (!cfg.hasKey() || cfg.model == null || cfg.model.trim().isEmpty()) {
             st.doing = "Waiting for Hermes connect + model (title screen -> Hermes)";
             return;
         }
-        long now = System.currentTimeMillis();
-        if (now - lastCall < 3000) {
-            st.doing = "Thinking (rate-limited, one moment)...";
-            return;
+        if (st.agent.hasWork()) {
+            // New message interrupts the old job (cancel is first-class).
+            st.agent.cancel("interrupted by player");
         }
-        lastCall = now;
+        st.memory.said(st.ownerId, playerName, text);
+        lastCall = System.currentTimeMillis();
         st.doing = "Thinking...";
-        new Thread(() -> {
-            try {
-                ensureFreshToken();
-                String kind = classify(text);
-                if ("MODE".equals(kind)) {
-                    applyMode(st, text);
-                } else if ("TASK".equals(kind)) {
-                    String plan = callChat(cfg.model, planPrompt(st, playerName, text), 400);
-                    plan = harnessParse(plan, text);
-                    pendingPlan = plan;
-                    st.goal = text.length() > 100 ? text.substring(0, 100) : text;
-                    st.next = "Executing plan";
-                    say(st, ackForTask(st, text));
-                } else {
-                    String reply = callChat(cfg.model, chatPrompt(st, playerName, text), 150);
-                    say(st, reply);
-                }
-            } catch (Exception e) {
-                String m = String.valueOf(e.getMessage());
-                st.doing = "Hermes error: " + (m.length() > 120 ? m.substring(0, 120) : m);
-            }
-        }).start();
+        MinecraftServer server = net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server == null) return;
+        st.agent.start(st, server, playerName + " says: " + text);
+        FriendLogger.info(st, "JOB from " + playerName + ": " + text);
     }
 
     private void say(FriendState st, String text) {
@@ -79,39 +63,65 @@ public class FriendBrain {
     }
 
     public void requestPlanAsync(final FriendState st, final String userGoal) {
-        if (!cfg.hasKey()) {
-            st.doing = "Waiting for Hermes connect (title screen -> Hermes)";
-            return;
-        }
-        if (cfg.model == null || cfg.model.trim().isEmpty()) {
-            st.doing = "Pick a model first (title screen -> Hermes)";
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (now - lastCall < 3000) return;
-        lastCall = now;
-        st.goal = userGoal;
-        st.next = "Planning via " + cfg.model;
-        new Thread(() -> {
-            try {
-                ensureFreshToken();
-                String plan = callChat(cfg.model, userGoal, 400);
-                plan = harnessParse(plan, userGoal);
-                pendingPlan = plan;
-            } catch (Exception e) {
-                String m = String.valueOf(e.getMessage());
-                st.doing = "Hermes error: " + (m.length() > 120 ? m.substring(0, 120) : m);
-            }
-        }).start();
+        // /friend do feeds the same agent loop (chat path without a speaker).
+        answerChatAsync(st, "Player", userGoal);
     }
 
     public void tickAsync(FriendState st, MinecraftServer server) {
-        if (pendingPlan != null) {
-            st.executor.enqueuePlan(st, pendingPlan);
-            st.doing = "Executing plan";
-            pendingPlan = null;
+        st.agent.drain(st, server);
+        pumpMovement(st, server);
+        pumpDigging(st, server);
+    }
+
+    /** Walk goto targets to arrival (re-path if stalled, fail loudly if lost). */
+    private void pumpMovement(FriendState st, MinecraftServer server) {
+        if (st.gotoTarget == null || st.visible == null) return;
+        double[] t = st.gotoTarget;
+        double d = st.visible.getDistance(t[0], t[1], t[2]);
+        if (d < 1.5D) {
+            st.gotoTarget = null;
+            return;
         }
-        drainSay(server);
+        if (st.visible.getNavigator().noPath()) {
+            boolean ok = st.visible.getNavigator().tryMoveToXYZ(t[0], t[1], t[2], 1.0D);
+            if (!ok) {
+                st.gotoTarget = null;
+            }
+        }
+    }
+
+    /** Break one block per few ticks toward digTarget (verified, drops to proxy). */
+    private int digCooldown = 0;
+
+    private void pumpDigging(FriendState st, MinecraftServer server) {
+        if (st.digTarget == null || st.visible == null) return;
+        if (digCooldown-- > 0) return;
+        digCooldown = 4;
+        net.minecraft.util.math.BlockPos target = st.digTarget;
+        double d = st.visible.getDistance(target.getX(), target.getY(), target.getZ());
+        if (d > 6.0D) {
+            if (st.visible.getNavigator().noPath()) {
+                st.visible.getNavigator().tryMoveToXYZ(target.getX(), target.getY(), target.getZ(), 1.0D);
+            }
+            st.doing = "Walking to dig site (" + ((int) d) + "m)";
+            return;
+        }
+        if (!st.visible.world.isBlockLoaded(target)) {
+            st.doing = "Waiting for chunk at dig site";
+            return;
+        }
+        net.minecraft.block.state.IBlockState s = st.visible.world.getBlockState(target);
+        if (s.getBlock() == net.minecraft.init.Blocks.AIR) {
+            st.digTarget = null;
+            return;
+        }
+        if (st.digBudget-- <= 0) {
+            st.digTarget = null;
+            return;
+        }
+        st.visible.world.destroyBlock(target, true);
+        if (st.proxy != null) st.proxy.inventory.addItemStackToInventory(new net.minecraft.item.ItemStack(net.minecraft.init.Items.STICK, 0));
+        st.doing = "Digging (" + st.digBudget + " left)";
     }
 
     private void ensureFreshToken() {
@@ -184,67 +194,50 @@ public class FriendBrain {
         return new String(out.toByteArray(), StandardCharsets.UTF_8);
     }
 
-    /** Cheap harness classifies: CHAT (just talk), TASK (world action), MODE (follow/stay/come). */
-    private String classify(String text) {
-        if (!cfg.harnessEnabled || cfg.harnessModel == null || cfg.harnessModel.trim().isEmpty()) {
-            return looksLikeTask(text) ? "TASK" : "CHAT";
-        }
-        try {
-            ensureFreshToken();
-            String sys = "Classify the player's message to their Minecraft companion. Reply with exactly one word: TASK if they want the companion to DO something in the world (get, build, mine, follow, come, stay, craft, kill, fetch, help with a job), MODE if they only change follow/stay/come behavior with no other job, CHAT otherwise (greetings, questions, jokes, status like what are you doing). One word only.";
-            String r = rawChat(cfg.harnessModel, sys, text, 10);
-            String u = r.trim().toUpperCase();
-            if (u.startsWith("TASK")) return "TASK";
-            if (u.startsWith("MODE")) return "MODE";
-            if (u.startsWith("CHAT")) return "CHAT";
-        } catch (Exception ignored) {
-        }
-        return looksLikeTask(text) ? "TASK" : "CHAT";
+    /**
+     * One think step for the agent loop (off-thread). Returns raw model text;
+     * the loop parses CALL lines. Uses the harness model for cheap steps when
+     * the job looks trivial, else the user's selected model.
+     */
+    public String think(String job, String snapshot, String turnHistory, boolean saidFirst) throws Exception {
+        ensureFreshToken();
+        String model = pickThinkModel(job, turnHistory);
+        String sys = "You are Bob-style Minecraft companion " + "(remote-controlling a game body; you are NOT physically in the game, say so if asked). "
+            + "Talk in very short sentences (say tool max 80 chars). Be yourself, casual, no roleplay fluff.\n"
+            + "TOOLS (reply ONLY with CALL lines, up to 3, one per line):\n"
+            + AgentTool.spec()
+            + "RULES: First reply MUST contain CALL say <short msg> AND one action CALL. Talk tools (say) and read tools (status, get_block, scan) may share a step; act tools (goto, dig_to, place_at, craft, give, follow, stay, come, stop, done) are ONE per step. "
+            + "done ends the job. stop cancels everything. Keep going until done; report failures honestly via say.";
+        String user = "JOB: " + job + "\nWORLD: " + snapshot + "\nHISTORY:\n" + turnHistory
+            + (saidFirst ? "" : "\n(This is step 1: you MUST include CALL say + one action CALL.)");
+        String reply = rawChat(model, sys, user, 300);
+        FriendLogger.think(lastThinkState, reply);
+        return reply;
     }
 
+    private FriendState lastThinkState;
+
+    public void bindThinkState(FriendState st) {
+        lastThinkState = st;
+    }
+
+    private String pickThinkModel(String job, String turnHistory) {
+        // Harness: real work uses the pick; trivial chatter rides the cheap model.
+        if (!cfg.harnessEnabled || cfg.harnessModel == null || cfg.harnessModel.trim().isEmpty()) return cfg.model;
+        if (cfg.harnessModel.equals(cfg.model)) return cfg.model;
+        String l = (job + " " + turnHistory).toLowerCase();
+        boolean trivial = (l.contains("hello") || l.contains(" hi ") || l.startsWith("hi ") || l.contains("thanks")
+            || l.contains("what are you doing") || l.contains("status")) && !looksLikeTask(job);
+        return trivial ? cfg.harnessModel : cfg.model;
+    }
+
+    /** Legacy plan-line path kept while the executor still exists (deprecated). */
     private static boolean looksLikeTask(String text) {
         String l = text.toLowerCase();
         return l.contains("get ") || l.contains("fetch") || l.contains("mine") || l.contains("build")
             || l.contains("craft") || l.contains("make ") || l.contains("collect") || l.contains("help me")
             || l.contains("follow") || l.contains("stay") || l.contains("come") || l.contains("kill")
             || l.contains("chop") || l.contains("dig");
-    }
-
-    private void applyMode(FriendState st, String text) {
-        String l = text.toLowerCase();
-        String mode = null;
-        if (l.contains("follow")) mode = "Follow";
-        else if (l.contains("stay")) mode = "Stay";
-        if (mode != null) {
-            st.mode = mode;
-            say(st, mode.equals("Follow") ? "On my way, sticking with you." : "Got it, holding here.");
-        } else if (l.contains("come")) {
-            say(st, "Coming!");
-            st.next = "COME";
-        } else {
-            say(st, "Sure thing.");
-        }
-    }
-
-    private String ackForTask(FriendState st, String text) {
-        String l = text.toLowerCase();
-        if (l.contains("log") || l.contains("wood")) return "On it, grabbing some logs.";
-        if (l.contains("house") || l.contains("build")) return "Nice, let's work on it. I'll start gathering.";
-        return "Got it, on my way.";
-    }
-
-    private String chatPrompt(FriendState st, String playerName, String text) {
-        return "You are " + st.name + ", a friendly Minecraft companion playing alongside " + playerName
-            + ". Reply as yourself in 1-2 short sentences, casual gamer chat, no quotes around it. "
-            + "Current job: " + (st.goal.isEmpty() ? "none" : st.goal) + ". Doing: " + st.doing + ". "
-            + "Recent chat:\n" + st.memory.contextBlock(10)
-            + playerName + ": " + text;
-    }
-
-    private String planPrompt(FriendState st, String playerName, String text) {
-        return "Player " + playerName + " says to companion " + st.name + ": \"" + text + "\". "
-            + "Recent chat:\n" + st.memory.contextBlock(10)
-            + "Return a short plan as lines like MINE <block> <n>, PLACE <block>, CRAFT <item>, FOLLOW, WAIT. No other text.";
     }
 
     private String rawChat(String model, String sys, String user, int maxTokens) throws Exception {

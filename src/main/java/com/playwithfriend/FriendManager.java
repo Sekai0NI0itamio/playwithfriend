@@ -8,17 +8,27 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
+import java.util.List;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.util.FakePlayerFactory;
 
 public class FriendManager {
     private final PlayWithFriend mod;
     private final Map<UUID, FriendState> friends = new ConcurrentHashMap<UUID, FriendState>();
-    private ForgeChunkManager.Ticket ticket;
+
+    @ForgeChunkManager.OrderedLoadingCallback
+    public static class TicketCB implements ForgeChunkManager.LoadingCallback {
+        @Override
+        public void ticketsLoaded(List<ForgeChunkManager.Ticket> tickets, World world) {
+        }
+    }
 
     public FriendManager(PlayWithFriend mod) {
         this.mod = mod;
+        ForgeChunkManager.setForcedChunkLoadingCallback(PlayWithFriend.instance, new TicketCB());
     }
 
     public Collection<FriendState> all() {
@@ -61,25 +71,35 @@ public class FriendManager {
     public void despawn(MinecraftServer server, UUID id) {
         FriendState st = friends.remove(id);
         if (st != null) {
+            st.agent.cancel("despawned");
             if (st.visible != null) st.visible.world.removeEntity(st.visible);
-            releaseTicket();
+            releaseTicket(st);
         }
     }
 
     private void ensureTicket(WorldServer world, EntityFriend vis) {
-        if (ticket == null) {
-            ticket = ForgeChunkManager.requestTicket(PlayWithFriend.instance, world, ForgeChunkManager.Type.NORMAL);
+        FriendState owner = null;
+        for (FriendState st : friends.values()) {
+            if (st.visible == vis) {
+                owner = st;
+                break;
+            }
         }
-        if (ticket != null) {
-            net.minecraft.util.math.ChunkPos pos = new net.minecraft.util.math.ChunkPos(vis.getPosition());
-            ForgeChunkManager.forceChunk(ticket, pos);
+        if (owner != null && owner.ticket == null) {
+            owner.ticket = ForgeChunkManager.requestTicket(PlayWithFriend.instance, world, ForgeChunkManager.Type.NORMAL);
+        }
+        if (owner != null && owner.ticket != null) {
+            ChunkPos pos = new ChunkPos(vis.getPosition());
+            ForgeChunkManager.forceChunk(owner.ticket, pos);
+            owner.chunkX = pos.x;
+            owner.chunkZ = pos.z;
         }
     }
 
-    private void releaseTicket() {
-        if (friends.isEmpty() && ticket != null) {
-            ForgeChunkManager.releaseTicket(ticket);
-            ticket = null;
+    private void releaseTicket(FriendState st) {
+        if (st.ticket != null) {
+            ForgeChunkManager.releaseTicket(st.ticket);
+            st.ticket = null;
         }
     }
 
@@ -87,7 +107,7 @@ public class FriendManager {
         for (FriendState st : friends.values()) {
             if (st.visible == null || st.visible.isDead) continue;
             if (st.visible.dimension != 0) continue;
-            EntityPlayerMP owner = server.getPlayerList().getPlayerByUUID(st.ownerId);
+            EntityPlayerMP owner = st.ownerId == null ? null : server.getPlayerList().getPlayerByUUID(st.ownerId);
             if (owner == null) {
                 st.doing = "Waiting for owner (offline)";
                 continue;
@@ -96,17 +116,18 @@ public class FriendManager {
                 st.doing = "Waiting (different dimension)";
                 continue;
             }
-            if ("Follow".equals(st.mode)) {
+            // Follow is an AI task, not a teleport script: only re-path when
+            // idle, only teleport when truly lost (>64m or no path progress).
+            // Movement itself runs in EntityFriend's navigator (step 1 block,
+            // jumps, head turns via WatchClosest — no spinning, no clipping).
+            if ("Follow".equals(st.mode) && !st.agent.hasWork()) {
                 double d = st.visible.getDistance(owner);
-                if (d > 3.0D && d < 64.0D) {
-                    st.doing = "Following owner (" + (int) d + "m)";
-                    if (st.visible.getNavigator().noPath()) {
-                        st.visible.getNavigator().tryMoveToXYZ(owner.posX, owner.posY, owner.posZ, 1.0D);
-                    }
-                } else if (d >= 64.0D) {
-                    st.doing = "Teleporting to owner (too far)";
+                if (d > 32.0D) {
+                    st.doing = "Catching up (too far)";
                     st.visible.getNavigator().clearPath();
                     st.visible.setPositionAndUpdate(owner.posX + 1, owner.posY, owner.posZ + 1);
+                } else if (d > 4.0D) {
+                    st.doing = "Following owner (" + (int) d + "m)";
                 } else {
                     st.doing = "Idle near owner";
                 }
@@ -114,9 +135,14 @@ public class FriendManager {
             if (st.proxy != null) {
                 st.proxy.setPosition(st.visible.posX, st.visible.posY, st.visible.posZ);
             }
-            if (ticket != null && server.getTickCounter() % 100 == 0) {
-                net.minecraft.util.math.ChunkPos pos = new net.minecraft.util.math.ChunkPos(st.visible.getPosition());
-                ForgeChunkManager.forceChunk(ticket, pos);
+            if (st.ticket != null && server.getTickCounter() % 100 == 0) {
+                ChunkPos cur = new ChunkPos(st.visible.getPosition());
+                if (cur.x != st.chunkX || cur.z != st.chunkZ) {
+                    ForgeChunkManager.unforceChunk(st.ticket, new ChunkPos(st.chunkX, st.chunkZ));
+                    ForgeChunkManager.forceChunk(st.ticket, cur);
+                    st.chunkX = cur.x;
+                    st.chunkZ = cur.z;
+                }
             }
             st.brain.tickAsync(st, server);
             st.executor.tick(st, server);
