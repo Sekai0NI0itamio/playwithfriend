@@ -19,7 +19,6 @@ public class FriendManager {
     private final PlayWithFriend mod;
     private final Map<UUID, FriendState> friends = new ConcurrentHashMap<UUID, FriendState>();
 
-    @ForgeChunkManager.OrderedLoadingCallback
     public static class TicketCB implements ForgeChunkManager.LoadingCallback {
         @Override
         public void ticketsLoaded(List<ForgeChunkManager.Ticket> tickets, World world) {
@@ -116,10 +115,10 @@ public class FriendManager {
                 st.doing = "Waiting (different dimension)";
                 continue;
             }
-            // Follow is an AI task, not a teleport script: only re-path when
-            // idle, only teleport when truly lost (>64m or no path progress).
-            // Movement itself runs in EntityFriend's navigator (step 1 block,
-            // jumps, head turns via WatchClosest — no spinning, no clipping).
+            // Follow runs inside EntityFriend's AI (swim + follow + wander +
+            // watch + idle with step-1 blocks, jumping, head turning).
+            // The tick only mirrors mode + handles the lost case (>32m).
+            if (st.visible != null) st.visible.setFollowMode(st.mode);
             if ("Follow".equals(st.mode) && !st.agent.hasWork()) {
                 double d = st.visible.getDistance(owner);
                 if (d > 32.0D) {

@@ -3,7 +3,7 @@ package com.playwithfriend;
 import java.util.UUID;
 import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.entity.ai.EntityAIFollowOwner;
+import net.minecraft.entity.ai.EntityAIBase;
 import net.minecraft.entity.ai.EntityAILookIdle;
 import net.minecraft.entity.ai.EntityAISwimming;
 import net.minecraft.entity.ai.EntityAIWanderAvoidWater;
@@ -45,10 +45,77 @@ public class EntityFriend extends EntityCreature {
     @Override
     protected void initEntityAI() {
         tasks.addTask(0, new EntityAISwimming(this));
-        tasks.addTask(2, new EntityAIFollowOwner(this, 1.0D, 4.0F, 32.0F));
+        tasks.addTask(2, new EntityAIFollowFriend(this, 1.0D, 4.0F, 32.0F));
         tasks.addTask(4, new EntityAIWanderAvoidWater(this, 0.6D));
         tasks.addTask(5, new EntityAIWatchClosest(this, EntityPlayer.class, 8.0F));
         tasks.addTask(6, new EntityAILookIdle(this));
+    }
+
+    /** Follow-owner task without EntityTameable (follows stored owner UUID). */
+    public static class EntityAIFollowFriend extends EntityAIBase {
+        private final EntityFriend friend;
+        private final double speed;
+        private final float near;
+        private final float far;
+        private int recalc;
+
+        EntityAIFollowFriend(EntityFriend friend, double speed, float near, float far) {
+            this.friend = friend;
+            this.speed = speed;
+            this.near = near;
+            this.far = far;
+            setMutexBits(3);
+        }
+
+        @Override
+        public boolean shouldExecute() {
+            if (friend.getOwnerId() == null || !"Follow".equals(friend.followMode())) return false;
+            EntityPlayer o = owner();
+            if (o == null) return false;
+            double d = friend.getDistance(o);
+            return d > near && d < far;
+        }
+
+        @Override
+        public boolean shouldContinueExecuting() {
+            EntityPlayer o = owner();
+            if (o == null) return false;
+            double d = friend.getDistance(o);
+            return d > near && d < far && !friend.getNavigator().noPath();
+        }
+
+        @Override
+        public void startExecuting() {
+            recalc = 0;
+        }
+
+        @Override
+        public void updateTask() {
+            EntityPlayer o = owner();
+            if (o == null) return;
+            if (--recalc <= 0) {
+                recalc = 20;
+                friend.getNavigator().tryMoveToEntityLiving(o, speed);
+            }
+        }
+
+        private EntityPlayer owner() {
+            if (friend.getOwnerId() == null || friend.world.isRemote) return null;
+            if (!(friend.world instanceof net.minecraft.world.WorldServer)) return null;
+            net.minecraft.world.WorldServer ws = (net.minecraft.world.WorldServer) friend.world;
+            net.minecraft.entity.player.EntityPlayerMP mp = ws.getMinecraftServer().getPlayerList().getPlayerByUUID(friend.getOwnerId());
+            return mp;
+        }
+    }
+
+    private String modeCache = "Follow";
+
+    public String followMode() {
+        return modeCache;
+    }
+
+    public void setFollowMode(String mode) {
+        modeCache = mode;
     }
 
     public void setOwnerId(UUID id) { this.ownerId = id; }

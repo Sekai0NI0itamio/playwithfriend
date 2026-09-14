@@ -352,7 +352,7 @@ public abstract class AgentTool {
                 net.minecraft.item.Item it = (net.minecraft.item.Item) o;
                 try {
                     String rn = it.getRegistryName() == null ? "" : it.getRegistryName().toString().toLowerCase();
-                    if (rn.endsWith(":" + want) || rn.equals(want) || it.getUnlocalizedName().toLowerCase().contains(want)) {
+                    if (rn.endsWith(":" + want) || rn.equals(want)) {
                         return it;
                     }
                 } catch (Exception ignored) {
