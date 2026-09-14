@@ -22,8 +22,8 @@ CI (`.github/workflows/build.yml`, Java 8 + Gradle 4.9) compiles every push. Per
 Runtime: title screen -> Hermes button -> Connect Hermes account (code + browser approve, like `hermes setup --portal`) -> pick a model (All/Free/Paid filter, prices + context + modalities shown) -> Save. Token stays in config/playwithfriend-hermes.json, never logged.
 In world: `/friend spawn Alex`, `/friend do get 32 logs`, `/friend status`, `/friend follow|stay|come|despawn`.
 
-## Arch (LLM plans, deterministic executes, cheap harness)
-Planner model -> Goal/Plan lines -> DeepSeek harness pass returns only clean MINE/PLACE/CRAFT/FOLLOW/WAIT lines (max 20) -> ActionExecutor verifies block/inventory each tick, stuck>5s steps up + replans. No per-tick LLM movement. Auth + catalog mirror the official [hermes-agent CLI](https://github.com/NousResearch/hermes-agent) (Nous Portal OAuth device-code, free-tier gating, Portal + OpenRouter model data).
+## Arch (agentic tool loop, remote-controller identity)
+Every message starts an agent session: observe (world snapshot) -> think (your model; trivial chatter rides the cheap DeepSeek harness) -> CALL tools -> game-thread executes -> result feeds back, max 20 steps / 3 min / 3 fails / 3 repeats, then it pauses and says so. Tools: say (chat, FIRST call of every job is say + one action), status, get_block, scan, goto, dig_to, place_at, craft, give, follow, stay, come, stop, done. Only say reaches in-game chat; every reply + tool + result is logged to config/playwithfriend-agent.log. The friend admits it remote-controls a body; cancel (new message / stop) is first-class. Auth + catalog mirror the official [hermes-agent CLI](https://github.com/NousResearch/hermes-agent) (Nous Portal OAuth device-code, free-tier gating, Portal + OpenRouter model data).
 
 ## Safety
 Allowlist only, confirm destructive, 3s rate-limit, key in local file only.
