@@ -255,7 +255,7 @@ public class GuiHermesConfig extends GuiScreen {
         }
 
         @Override
-        protected void drawSlot(int i, int rx, int ry, int rh, int mx, int my) {
+        protected void drawSlot(int i, int rx, int ry, int rh, int mx, int my, float t) {
             List<ModelCatalog.Entry> vis = visible();
             if (i < 0 || i >= vis.size()) return;
             ModelCatalog.Entry e = vis.get(i);
