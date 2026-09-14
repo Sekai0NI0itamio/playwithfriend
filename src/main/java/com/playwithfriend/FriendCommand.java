@@ -36,9 +36,15 @@ public class FriendCommand extends CommandBase {
         String sub = args[0].toLowerCase();
         if ("spawn".equals(sub)) {
             String name = args.length > 1 ? args[1] : "Friend";
-            FriendState st = mod.friends.spawn(server, name);
-            sender.sendMessage(new TextComponentString("Spawned " + st.statusLine()));
-        } else if ("status".equals(sub)) {
+            EntityPlayerMP owner = sender instanceof EntityPlayerMP ? (EntityPlayerMP) sender : null;
+            FriendManager.SpawnResult r = mod.friends.spawnEx(server, owner, name);
+            if (r.state == null) {
+                sender.sendMessage(new TextComponentString("Spawn failed."));
+            } else if (r.fresh) {
+                sender.sendMessage(new TextComponentString("Spawned " + r.state.statusLine()));
+            } else {
+                sender.sendMessage(new TextComponentString(r.state.name + " is already here. " + r.state.statusLine()));
+            } else if ("status".equals(sub)) {
             for (FriendState st : mod.friends.all()) {
                 sender.sendMessage(new TextComponentString(st.statusLine()));
             }

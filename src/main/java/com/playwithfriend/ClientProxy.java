@@ -1,17 +1,8 @@
 package com.playwithfriend;
 
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.minecraft.MinecraftProfileTexture;
-import java.util.HashMap;
-import java.util.Map;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.AbstractClientPlayer;
-import net.minecraft.client.model.ModelBiped;
-import net.minecraft.client.renderer.ThreadDownloadImageData;
-import net.minecraft.client.renderer.entity.RenderBiped;
+import net.minecraft.client.model.ModelPlayer;
+import net.minecraft.client.renderer.entity.RenderLiving;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.texture.ITextureObject;
-import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
@@ -20,47 +11,22 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
- * Renders the friend as an actual player model with a Mojang skin looked up
- * by name (MHF_Steve default, per-friend name after). Downloads + caches the
- * real player texture; falls back to default Steve/Alex while loading.
+ * Renders the friend with the real player model (ModelPlayer: correct slim
+ * UVs + hat/jacket layers) and a deterministic default skin per friend
+ * (Steve/Alex by UUID hash). Always valid, works offline — no downloads at
+ * render time, so no black/stretched corruption.
  */
 @SideOnly(Side.CLIENT)
 public class ClientProxy extends CommonProxy {
-    private static final Map<String, ResourceLocation> SKINS = new HashMap<String, ResourceLocation>();
-
     @Override
     public void preInit(FMLPreInitializationEvent e) {
         super.preInit(e);
         RenderingRegistry.registerEntityRenderingHandler(EntityFriend.class,
-            (RenderManager m) -> new RenderBiped<EntityFriend>(m, new ModelBiped(), 0.5F) {
+            (RenderManager m) -> new RenderLiving<EntityFriend>(m, new ModelPlayer(0.0F, false), 0.5F) {
                 @Override
                 protected ResourceLocation getEntityTexture(EntityFriend f) {
-                    return skinFor(f.getSkinName(), f.getUniqueID());
+                    return DefaultPlayerSkin.getDefaultSkin(f.getUniqueID());
                 }
             });
-    }
-
-    private static ResourceLocation skinFor(String name, java.util.UUID id) {
-        try {
-            ResourceLocation cached = SKINS.get(name);
-            if (cached != null) return cached;
-            Minecraft mc = Minecraft.getMinecraft();
-            GameProfile profile = new GameProfile(null, name);
-            java.util.Map<?, ?> map = mc.getSkinManager().loadSkinFromCache(profile);
-            Object tex = map == null ? null : map.get(MinecraftProfileTexture.Type.SKIN);
-            ResourceLocation loc;
-            if (tex instanceof MinecraftProfileTexture) {
-                MinecraftProfileTexture t = (MinecraftProfileTexture) tex;
-                loc = new ResourceLocation("skins/" + t.getHash());
-                ITextureObject obj = new ThreadDownloadImageData(null, t.getUrl(), DefaultPlayerSkin.getDefaultSkin(id), null);
-                mc.getTextureManager().loadTexture(loc, obj);
-            } else {
-                loc = DefaultPlayerSkin.getDefaultSkin(id);
-            }
-            SKINS.put(name, loc);
-            return loc;
-        } catch (Exception e) {
-            return DefaultPlayerSkin.getDefaultSkin(id);
-        }
     }
 }

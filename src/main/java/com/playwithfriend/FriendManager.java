@@ -34,11 +34,25 @@ public class FriendManager {
         return friends.values();
     }
 
+    public static class SpawnResult {
+        public FriendState state;
+        public boolean fresh;
+    }
+
     public FriendState spawn(MinecraftServer server, EntityPlayerMP owner, String name) {
+        return spawnEx(server, owner, name).state;
+    }
+
+    public SpawnResult spawnEx(MinecraftServer server, EntityPlayerMP owner, String name) {
+        SpawnResult r = new SpawnResult();
         WorldServer world = PlayWithFriend.overworld(server);
-        if (world.isRemote) return null;
+        if (world.isRemote) return r;
         for (FriendState f : friends.values()) {
-            if (f.ownerId != null && f.ownerId.equals(owner.getUniqueID()) && f.name.equalsIgnoreCase(name)) return f;
+            if (f.ownerId != null && f.ownerId.equals(owner.getUniqueID()) && f.name.equalsIgnoreCase(name)) {
+                r.state = f;
+                r.fresh = false;
+                return r;
+            }
         }
         BlockPos at = owner != null ? owner.getPosition() : world.getSpawnPoint();
         EntityFriend vis = new EntityFriend(world);
@@ -59,7 +73,9 @@ public class FriendManager {
         st.next = "Follow owner";
         friends.put(st.id, st);
         ensureTicket(world, vis);
-        return st;
+        r.state = st;
+        r.fresh = true;
+        return r;
     }
 
     public FriendState spawn(MinecraftServer server, String name) {

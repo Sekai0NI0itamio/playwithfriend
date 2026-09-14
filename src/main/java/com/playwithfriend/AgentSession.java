@@ -138,6 +138,11 @@ public class AgentSession {
                 pushHist("model", "CALL " + c.tool + " " + c.args);
             }
             // Wait for the server thread to execute and report back.
+            // resultReady MUST be false here: it starts true, so without this
+            // the loop would consume a phantom result before drain() runs.
+            synchronized (queue) {
+                resultReady = false;
+            }
             String res = waitResult();
             if (res == null) return;
             lastResult = res;
@@ -158,7 +163,9 @@ public class AgentSession {
         PendingCall p = new PendingCall();
         p.tool = "say";
         p.args = note;
-        queue.add(p);
+        synchronized (queue) {
+            queue.add(p);
+        }
         st.doing = "Paused (" + why + ")";
     }
 
@@ -203,7 +210,9 @@ public class AgentSession {
         PendingCall p = new PendingCall();
         p.tool = tool;
         p.args = args;
-        queue.add(p);
+        synchronized (queue) {
+            queue.add(p);
+        }
     }
 
     private String waitResult() {
@@ -223,11 +232,17 @@ public class AgentSession {
 
     /** Server thread: run queued tools, feed results back. Returns after one act-tool or all talk/read. */
     public void drain(FriendState st, MinecraftServer server) {
-        while (!queue.isEmpty()) {
-            PendingCall p = queue.peek();
+        while (true) {
+            PendingCall p;
+            synchronized (queue) {
+                p = queue.peek();
+            }
+            if (p == null) return;
             AgentTool tool = find(p.tool);
             if (tool == null) {
-                queue.poll();
+                synchronized (queue) {
+                    queue.poll();
+                }
                 lastResult = "ERR unknown tool <" + p.tool + ">";
                 resultReady = true;
                 continue;
@@ -239,7 +254,9 @@ public class AgentSession {
             } catch (Exception e) {
                 r = "ERR " + p.tool + " crashed: " + e.getMessage();
             }
-            queue.poll();
+            synchronized (queue) {
+                queue.poll();
+            }
             lastResult = r;
             resultReady = true;
             FriendLogger.tool(st, p.tool, p.args, r);

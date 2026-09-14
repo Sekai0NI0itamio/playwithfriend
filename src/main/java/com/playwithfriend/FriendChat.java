@@ -24,6 +24,7 @@ public class FriendChat {
     private final PlayWithFriend mod;
     private static final Pattern LEAD = Pattern.compile("^\\s*(hey|hi|hello|yo|ok|hey,|hi,|hello,)?\\s*([A-Za-z0-9_]{2,16})\\s*[:,]\\s*(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern TRAIL = Pattern.compile("^\\s*(.+?)\\s*,\\s*(hey|hi|hello|yo)?\\s*([A-Za-z0-9_]{2,16})\\s*[.!?]*\\s*$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern BARE_GREETING = Pattern.compile("^\\s*(hey|hi|hello|yo)\\s+([A-Za-z0-9_]{2,16})\\s*[.!?]*\\s*$", Pattern.CASE_INSENSITIVE);
 
     public FriendChat(PlayWithFriend mod) {
         this.mod = mod;
@@ -64,6 +65,16 @@ public class FriendChat {
                 Match m = new Match();
                 m.name = name;
                 m.rest = rest.trim();
+                return m;
+            }
+        }
+        Matcher gm = BARE_GREETING.matcher(msg);
+        if (gm.matches()) {
+            String name = gm.group(2);
+            if (!isCommonWord(name)) {
+                Match m = new Match();
+                m.name = name;
+                m.rest = gm.group(1).trim();
                 return m;
             }
         }
