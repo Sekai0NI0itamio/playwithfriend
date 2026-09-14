@@ -30,6 +30,7 @@ public class PlayWithFriend {
         friends = new FriendManager(this);
         proxy.preInit(e);
         MinecraftForge.EVENT_BUS.register(new FriendEvents(this));
+        MinecraftForge.EVENT_BUS.register(new FriendChat(this));
         MinecraftForge.EVENT_BUS.register(new GuiTitleHandler(this));
     }
 

@@ -10,6 +10,7 @@ public class FriendState {
     public transient EntityPlayerMP proxy;
     public final FriendBrain brain;
     public final ActionExecutor executor;
+    public final FriendMemory memory = new FriendMemory();
     public String mode = "Follow";
     public String goal = "";
     public String doing = "";

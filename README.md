@@ -14,7 +14,7 @@ Install: Minecraft 1.12.2 + Forge 14.23.5.2847 → drop the jar into `.minecraft
 1. Install: vanilla launcher, Minecraft 1.12.2 + Forge 14.23.5.2847, drop the jar above into `.minecraft/mods/`, launch.
 2. Title screen -> Hermes button (top-left, shows connect state) -> Connect Hermes account -> approve the shown code in the auto-opened Portal page (URL also drawn in-game + "Open login page" reopens it) -> wait for "Connected! Loading models...".
 3. Model list: mouse-wheel / scrollbar / drag all scroll; click a row -> it shows `[x]`, "Save model" enables; Filter button cycles All -> Free only -> Paid only; double-click also saves. Saved model is prefixed `>` and shown on the title button + status line.
-4. Singleplayer world -> `/friend spawn Alex` -> `/friend status` (Goal/Doing/Next) -> `/friend do get 32 logs` -> friend plans via your model + DeepSeek harness, executes verified steps, reports stuck/replans.
+4. Singleplayer world -> `/friend spawn Bob` -> just talk in chat: `hello bob, lets work on this house, can you help me get some logs?` -> Bob replies (`<Bob> ...`) and starts the job. More talk: `bob, follow me` / `hey bob, what are you doing?` / `thanks bob, stay here`. Commands still work: `/friend status`, `/friend do get 32 logs`, `/friend follow|stay|come|despawn`.
 5. If anything looks off, screenshot the screen + paste `.minecraft/logs/latest.log` lines mentioning `playwithfriend`.
 
 ## Setup (devs, CI builds only)

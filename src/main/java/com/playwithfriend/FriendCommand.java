@@ -24,7 +24,7 @@ public class FriendCommand extends CommandBase {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/friend spawn [name] | despawn | follow | stay | come | status | do <goal>";
+        return "/friend spawn [name] | despawn | follow | stay | come | status | do <goal> (or just talk: \"hello <name>, ...\")";
     }
 
     @Override
@@ -63,8 +63,15 @@ public class FriendCommand extends CommandBase {
         } else if ("do".equals(sub)) {
             StringBuilder goal = new StringBuilder();
             for (int i = 1; i < args.length; i++) goal.append(args[i]).append(" ");
+            String g = goal.toString().trim();
+            if (sender instanceof EntityPlayerMP) {
+                EntityPlayerMP p = (EntityPlayerMP) sender;
+                for (FriendState st : mod.friends.all()) {
+                    st.memory.said(p.getUniqueID(), p.getName(), g);
+                }
+            }
             for (FriendState st : mod.friends.all()) {
-                st.brain.requestPlanAsync(st, goal.toString().trim());
+                st.brain.requestPlanAsync(st, g);
             }
             sender.sendMessage(new TextComponentString("Goal sent to brain."));
         } else {
